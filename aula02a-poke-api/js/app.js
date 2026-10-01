@@ -5,17 +5,19 @@ const loading = document.getElementById('loading');
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 
-// Função para buscar os detalhes individuais de um Pokémon
 async function fetchPokemonData(urlOrName) {
-	const url = urlOrName.startsWith('http')
-		? urlOrName
-		: `${API_URL}/${urlOrName.toLowerCase().trim()}`;
+	const term = String(urlOrName).trim();
+
+	const url = term.startsWith('http')
+		? term
+		: `${API_URL}/${encodeURIComponent(term.toLowerCase())}`;
 
 	const response = await fetch(url);
+
 	if (!response.ok) {
-		throw new Error('Pokémon não encontrado');
-  }
-  console.log('Response:', response); // Log da resposta para depuração
+		throw new Error('Não foi possível buscar o Pokémon.');
+	}
+
 	return await response.json();
 }
 
@@ -66,8 +68,17 @@ function renderPokemonCard(pokemon) {
 
 	const cardHTML = `
         <div class="col">
-          <div class="card h-100 shadow-sm pokemon-card border-0">
-            <div class="text-center p-3 bg-white rounded-top">
+<div
+	class="card h-100 shadow-sm pokemon-card border-0"
+	style="cursor: pointer;"
+	role="button"
+	tabindex="0"
+	onclick="openPokemonModal(${pokemon.id})"
+	onkeydown="if (event.key === 'Enter' || event.key === ' ') {
+		event.preventDefault();
+		openPokemonModal(${pokemon.id});
+	}"
+>            <div class="text-center p-3 bg-white rounded-top">
               <img src="${imageUrl}" class="card-img-top img-fluid" style="max-height: 160px; object-fit: contain;" alt="${pokemon.name}">
             </div>
             <div class="card-body">
@@ -136,7 +147,173 @@ function showError(message) {
       `;
 }
 
+// Busca os dados e abre a janela de detalhes.
+async function openPokemonModal(id) {
+	const modalElement = document.getElementById('pokemonModal');
+	const modalTitle = document.getElementById('pokemonModalTitle');
+	const modalBody = document.getElementById('pokemonModalBody');
+
+	const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+
+	modalTitle.textContent = 'Carregando...';
+	modalBody.innerHTML = `
+		<div class="text-center py-4" role="status">
+			<div class="spinner-border text-danger"></div>
+			<p class="mt-2 mb-0">Buscando detalhes...</p>
+		</div>
+	`;
+
+	modal.show();
+
+	try {
+		const pokemon = await fetchPokemonData(id);
+
+		modalTitle.textContent =
+			`${pokemon.name} #${String(pokemon.id).padStart(3, '0')}`;
+
+		modalBody.innerHTML = renderPokemonDetails(pokemon);
+	} catch (error) {
+		modalTitle.textContent = 'Erro ao carregar';
+
+		modalBody.innerHTML = `
+			<div class="alert alert-danger" role="alert">
+				Não foi possível carregar os detalhes.
+				Feche esta janela e tente novamente.
+			</div>
+		`;
+
+		console.error(error);
+	}
+}
+
+// Monta o conteúdo que será colocado dentro do modal.
+function renderPokemonDetails(pokemon) {
+	// Nome na API, nome exibido e cor da barra.
+	const statsConfig = [
+		['hp', 'HP', 'bg-success'],
+		['attack', 'Ataque', 'bg-danger'],
+		['defense', 'Defesa', 'bg-primary'],
+		['speed', 'Velocidade', 'bg-warning']
+	];
+
+	const statsHTML = statsConfig
+		.map(([name, label, color]) => {
+			const value = pokemon.stats
+				.find(item => item.stat.name === name)?.base_stat ?? 0;
+
+			const width = Math.min((value / 255) * 100, 100);
+
+			return `
+				<div class="mb-3">
+					<div class="d-flex justify-content-between">
+						<span>${label}</span>
+						<strong>${value}</strong>
+					</div>
+
+					<div class="progress" style="height: 12px;">
+						<div
+							class="progress-bar ${color}"
+							role="progressbar"
+							style="width: ${width}%;"
+							aria-label="${label}"
+							aria-valuenow="${value}"
+							aria-valuemin="0"
+							aria-valuemax="255"
+						></div>
+					</div>
+				</div>
+			`;
+		})
+		.join('');
+
+	const abilitiesHTML = pokemon.abilities
+		.map(item => `
+			<li class="list-group-item text-capitalize">
+				${item.ability.name.replaceAll('-', ' ')}
+				${item.is_hidden
+					? '<small class="text-muted">(oculta)</small>'
+					: ''}
+			</li>
+		`)
+		.join('');
+
+	// Prefere o som atual; se ele faltar, tenta o antigo.
+	const audioUrl = pokemon.cries?.latest || pokemon.cries?.legacy;
+
+	const audioHTML = audioUrl
+		? `
+			<audio
+				controls
+				preload="none"
+				src="${audioUrl}"
+				class="w-100"
+			>
+				Seu navegador não suporta áudio.
+			</audio>
+		`
+		: '<p class="text-muted">Som não disponível para este Pokémon.</p>';
+
+	const sprites = [
+		['Frente normal', pokemon.sprites.front_default],
+		['Costas normal', pokemon.sprites.back_default],
+		['Frente shiny', pokemon.sprites.front_shiny],
+		['Costas shiny', pokemon.sprites.back_shiny]
+	];
+
+	const spritesHTML = sprites
+		.map(([label, url]) => `
+			<div class="col-6 col-md-3 text-center">
+				${url
+					? `
+						<img
+							src="${url}"
+							alt="${pokemon.name} — ${label}"
+							width="96"
+							height="96"
+							class="img-fluid"
+						>
+					`
+					: '<p class="text-muted small">Imagem não disponível</p>'}
+
+				<p class="small mb-0">${label}</p>
+			</div>
+		`)
+		.join('');
+
+	return `
+		<h3 class="fs-5">Status base</h3>
+		<p class="small text-muted">
+			Escala visual das barras: 0 a 255.
+		</p>
+		${statsHTML}
+
+		<h3 class="fs-5 mt-4">Habilidades</h3>
+		<ul class="list-group mb-4">
+			${abilitiesHTML}
+		</ul>
+
+		<h3 class="fs-5">Som do Pokémon</h3>
+		${audioHTML}
+
+		<h3 class="fs-5 mt-4">Galeria de sprites</h3>
+		<div class="row g-3">
+			${spritesHTML}
+		</div>
+	`;
+}
+
 // Eventos
+
+document.getElementById('pokemonModal')
+	.addEventListener('hide.bs.modal', () => {
+		const audio = document.querySelector('#pokemonModalBody audio');
+
+		if (audio) {
+			audio.pause();
+			audio.currentTime = 0;
+		}
+	});
+
 searchBtn.addEventListener('click', handleSearch);
 searchInput.addEventListener('keypress', (e) => {
 	if (e.key === 'Enter') handleSearch();
