@@ -1,6 +1,4 @@
-// Em produção (Render). Para testar localmente, troque por 'http://localhost:3000/pacientes'
-// Colocar a url de SUA api criada no render
-const URL_API = 'https://api-clinica-XYZW.onrender.com/pacientes';
+const URL_API = 'https://api-clinica-vanessa-simoes.onrender.com/pacientes';
 
 const formulario = document.getElementById('form-paciente');
 const tabela = document.getElementById('tabela-pacientes');
