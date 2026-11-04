@@ -1,0 +1,5 @@
+curl.exe -i -X GET https://api-clinica-vanessa-simoes.onrender.com/pacientes
+curl.exe -i -X POST https://api-clinica-vanessa-simoes.onrender.com/pacientes -H "Content-Type: application/json" -d "{\"nome\":\"Paciente Teste CLI\",\"email\":\"teste.cli@email.com\",\"nascimento\":\"1998-05-20\"}"
+curl.exe -i -X GET https://api-clinica-vanessa-simoes.onrender.com/pacientes/4
+curl.exe -i -X PUT https://api-clinica-vanessa-simoes.onrender.com/pacientes/4 -H "Content-Type: application/json" -d "{\"nome\":\"Paciente Atualizado CLI\",\"email\":\"teste.cli@email.com\",\"nascimento\":\"1998-05-20\"}"
+curl.exe -i -X DELETE https://api-clinica-vanessa-simoes.onrender.com/pacientes/4
